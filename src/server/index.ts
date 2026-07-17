@@ -6,6 +6,7 @@ import { Repository } from "./db/repository";
 import { openDatabase } from "./db/schema";
 import { RefreshService } from "./services/refresh";
 import { SearchService } from "./services/search";
+import { MigrationService } from "./services/migration";
 import { createAdsAdapter } from "./sources/ads";
 import { createArxivAdapter } from "./sources/arxiv";
 
@@ -25,6 +26,7 @@ const app = createApp({
   repository,
   search: new SearchService(repository, adapters),
   refresh: new RefreshService(repository, adapters),
+  migration: new MigrationService(repository),
   configuredSources: adapters.map((adapter) => adapter.source),
 });
 const port = Number(process.env.PORT ?? 4173);

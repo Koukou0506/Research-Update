@@ -6,6 +6,17 @@ import type { FeedQuery, Paper, SavedSearch, SourceName } from "../../shared/con
 
 type PaperStatePatch = Partial<Pick<Paper, "favorite" | "read">>;
 
+export type DatabaseSnapshot = {
+  savedSearches: Array<{ id: string; query: string; enabled: number; created_at: string; updated_at: string }>;
+  papers: Array<Record<string, unknown> & { id: string }>;
+  paperSources: Array<Record<string, unknown> & { paper_id: string }>;
+  paperSearchMatches: Array<{ paper_id: string; search_id: string }>;
+  paperState: Array<Record<string, unknown> & { paper_id: string; favorite: number }>;
+  refreshRuns: Array<Record<string, unknown> & { search_id: string }>;
+  settings: Array<Record<string, unknown>>;
+  schemaMetadata: Array<Record<string, unknown>>;
+};
+
 type PaperRow = {
   id: string;
   title: string;
@@ -186,6 +197,46 @@ export class Repository {
       INSERT INTO settings(key, value_json) VALUES (?, ?)
       ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json
     `).run(key, JSON.stringify(value));
+  }
+
+  exportSnapshot(): DatabaseSnapshot {
+    return {
+      savedSearches: this.database.prepare("SELECT * FROM saved_searches ORDER BY id").all() as DatabaseSnapshot["savedSearches"],
+      papers: this.database.prepare("SELECT * FROM papers ORDER BY id").all() as DatabaseSnapshot["papers"],
+      paperSources: this.database.prepare("SELECT * FROM paper_sources ORDER BY paper_id, source").all() as DatabaseSnapshot["paperSources"],
+      paperSearchMatches: this.database.prepare("SELECT * FROM paper_search_matches ORDER BY paper_id, search_id").all() as DatabaseSnapshot["paperSearchMatches"],
+      paperState: this.database.prepare("SELECT * FROM paper_state ORDER BY paper_id").all() as DatabaseSnapshot["paperState"],
+      refreshRuns: this.database.prepare("SELECT * FROM refresh_runs ORDER BY search_id, source").all() as DatabaseSnapshot["refreshRuns"],
+      settings: this.database.prepare("SELECT * FROM settings ORDER BY key").all() as DatabaseSnapshot["settings"],
+      schemaMetadata: this.database.prepare("SELECT * FROM schema_metadata ORDER BY key").all() as DatabaseSnapshot["schemaMetadata"],
+    };
+  }
+
+  replaceAll(snapshot: DatabaseSnapshot): void {
+    const insertRows = (table: string, rows: Array<Record<string, unknown>>): void => {
+      for (const row of rows) {
+        const columns = Object.keys(row);
+        const placeholders = columns.map(() => "?").join(", ");
+        this.database
+          .prepare(`INSERT INTO ${table} (${columns.join(", ")}) VALUES (${placeholders})`)
+          .run(...columns.map((column) => row[column]));
+      }
+    };
+
+    const transaction = this.database.transaction(() => {
+      for (const table of ["paper_search_matches", "paper_sources", "paper_state", "refresh_runs", "papers", "saved_searches", "settings", "schema_metadata"]) {
+        this.database.prepare(`DELETE FROM ${table}`).run();
+      }
+      insertRows("saved_searches", snapshot.savedSearches);
+      insertRows("papers", snapshot.papers);
+      insertRows("paper_sources", snapshot.paperSources);
+      insertRows("paper_search_matches", snapshot.paperSearchMatches);
+      insertRows("paper_state", snapshot.paperState);
+      insertRows("refresh_runs", snapshot.refreshRuns);
+      insertRows("settings", snapshot.settings);
+      insertRows("schema_metadata", snapshot.schemaMetadata);
+    });
+    transaction();
   }
 
   private hydratePaper(row: PaperRow): Paper {

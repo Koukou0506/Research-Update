@@ -1,15 +1,18 @@
 import express, { type ErrorRequestHandler, type RequestHandler } from "express";
+import multer from "multer";
 import { z, ZodError } from "zod";
 
 import { feedQuerySchema, type SourceName } from "../shared/contracts";
 import type { Repository } from "./db/repository";
 import type { RefreshService } from "./services/refresh";
 import type { SearchService } from "./services/search";
+import type { MigrationService } from "./services/migration";
 
 type AppDependencies = {
   repository: Repository;
   search: SearchService;
   refresh: RefreshService;
+  migration?: MigrationService;
   configuredSources: SourceName[];
 };
 
@@ -24,8 +27,9 @@ const asyncRoute = (handler: RequestHandler): RequestHandler => (request, respon
   Promise.resolve(handler(request, response, next)).catch(next);
 };
 
-export const createApp = ({ repository, search, refresh, configuredSources }: AppDependencies) => {
+export const createApp = ({ repository, search, refresh, migration, configuredSources }: AppDependencies) => {
   const app = express();
+  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024, files: 1 } });
   app.use(express.json({ limit: "1mb" }));
 
   app.get("/api/status", (_request, response) => {
@@ -83,6 +87,24 @@ export const createApp = ({ repository, search, refresh, configuredSources }: Ap
     const settings = settingsSchema.parse(request.body);
     repository.setSetting("language", settings.language);
     response.json({ data: settings });
+  });
+
+  app.get("/api/migration/export", (_request, response) => {
+    if (!migration) return response.status(503).json({ error: { code: "UNAVAILABLE", message: "Migration unavailable" } });
+    const archive = migration.exportArchive();
+    response.setHeader("content-type", "application/zip");
+    response.setHeader("content-disposition", "attachment; filename=research-update.zip");
+    return response.send(Buffer.from(archive));
+  });
+  app.post("/api/migration/preview", upload.single("archive"), (request, response) => {
+    if (!migration) return response.status(503).json({ error: { code: "UNAVAILABLE", message: "Migration unavailable" } });
+    if (!request.file) return response.status(400).json({ error: { code: "INVALID_REQUEST", message: "Archive is required" } });
+    return response.json({ data: migration.previewArchive(request.file.buffer) });
+  });
+  app.post("/api/migration/restore", upload.single("archive"), (request, response) => {
+    if (!migration) return response.status(503).json({ error: { code: "UNAVAILABLE", message: "Migration unavailable" } });
+    if (!request.file) return response.status(400).json({ error: { code: "INVALID_REQUEST", message: "Archive is required" } });
+    return response.json({ data: migration.restoreArchive(request.file.buffer) });
   });
 
   app.use("/api", (_request, response) => {
