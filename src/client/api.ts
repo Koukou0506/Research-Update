@@ -2,7 +2,7 @@ import type { FeedQuery, Paper, SavedSearch, SourceName } from "../shared/contra
 import type { DailyRadarView, PaperFeedback, ProfileFacet, ProfileFacetInput, ResearchProfile, ResearchTopic } from "../shared/radar";
 
 export type SourceRun = { state: "ok" | "error"; count: number; message: string | null };
-export type MigrationPreview = { exportVersion: 1; schemaVersion: 1; createdAt: string; searches: number; papers: number; favorites: number };
+export type MigrationPreview = { exportVersion: 1 | 2; schemaVersion: 1 | 2; createdAt: string; searches: number; papers: number; favorites: number };
 
 export interface ResearchApi {
   getStatus(): Promise<Record<SourceName, { available: boolean }>>;

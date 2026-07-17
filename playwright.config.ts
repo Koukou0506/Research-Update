@@ -8,9 +8,9 @@ export default defineConfig({
   workers: 1,
   use: { baseURL: "http://127.0.0.1:4173", viewport: { width: 1280, height: 800 } },
   webServer: {
-    command: "npm run build && npm start",
+    command: "node --import tsx src/server/index.ts",
     url: "http://127.0.0.1:4173",
-    reuseExistingServer: false,
+    reuseExistingServer: process.env.PLAYWRIGHT_REUSE_SERVER === "1",
     timeout: 60_000,
     env: {
       NODE_ENV: "test",

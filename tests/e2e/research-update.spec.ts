@@ -4,6 +4,11 @@ test("works without ADS and restores a complete exported archive", async ({ page
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "RESEARCH UPDATE" })).toBeVisible();
   await expect(page.getByText("ADS 未配置")).toBeVisible();
+  await page.getByRole("textbox", { name: "研究方向" }).fill("I study fast radio bursts and radio transients.");
+  await page.getByRole("button", { name: "解析画像" }).click();
+  await expect(page.locator('.facet-row input').first()).toHaveValue("I study fast radio bursts and radio transients.");
+  await page.getByRole("button", { name: "确认画像" }).click();
+  await expect(page.getByRole("heading", { name: "主题雷达" })).toBeVisible();
 
   await page.getByRole("searchbox").fill("fast radio burst");
   await page.getByRole("button", { name: "搜索", exact: true }).click();
@@ -19,6 +24,7 @@ test("works without ADS and restores a complete exported archive", async ({ page
   expect(archivePath).not.toBeNull();
 
   await page.reload();
+  await page.getByRole("navigation").getByRole("button", { name: "全部论文", exact: true }).click();
   await page.getByRole("button", { name: "删除" }).click();
   await expect(page.getByRole("button", { name: "fast radio burst" })).toHaveCount(0);
   await page.getByRole("button", { name: "数据迁移" }).click();

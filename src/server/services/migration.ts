@@ -10,7 +10,7 @@ const MAX_SEARCHES = 1_000;
 const allowedEntries = new Set(["manifest.json", "data.json"]);
 
 const rowArray = z.array(z.record(z.string(), z.unknown()));
-const snapshotSchema = z.object({
+const legacySnapshotSchema = z.object({
   savedSearches: rowArray,
   papers: rowArray,
   paperSources: rowArray,
@@ -20,6 +20,16 @@ const snapshotSchema = z.object({
   settings: rowArray,
   schemaMetadata: rowArray,
 });
+const snapshotSchema = legacySnapshotSchema.extend({
+  researchProfiles: rowArray,
+  profileFacets: rowArray,
+  paperAiAnalyses: rowArray,
+  paperScores: rowArray,
+  researchTopics: rowArray,
+  paperTopicMatches: rowArray,
+  paperFeedback: rowArray,
+  dailySelections: rowArray,
+});
 const manifestSchema = z.object({
   exportVersion: z.number().int(),
   schemaVersion: z.number().int(),
@@ -28,8 +38,8 @@ const manifestSchema = z.object({
 });
 
 export type MigrationPreview = {
-  exportVersion: 1;
-  schemaVersion: 1;
+  exportVersion: 1 | 2;
+  schemaVersion: 1 | 2;
   createdAt: string;
   searches: number;
   papers: number;
@@ -41,11 +51,27 @@ type ParsedArchive = { preview: MigrationPreview; snapshot: DatabaseSnapshot };
 const validateReferences = (snapshot: DatabaseSnapshot): void => {
   const paperIds = new Set(snapshot.papers.map((row) => String(row.id)));
   const searchIds = new Set(snapshot.savedSearches.map((row) => String(row.id)));
+  const profileIds = new Set(snapshot.researchProfiles.map((row) => String(row.id)));
+  const topicIds = new Set(snapshot.researchTopics.map((row) => String(row.id)));
+  const selectionReferencesExist = snapshot.dailySelections.every((row) => {
+    try {
+      const ids = JSON.parse(String(row.paper_ids_json)) as unknown;
+      return Array.isArray(ids) && ids.every((id) => paperIds.has(String(id)));
+    } catch {
+      return false;
+    }
+  });
   const valid =
     snapshot.paperSources.every((row) => paperIds.has(String(row.paper_id))) &&
     snapshot.paperState.every((row) => paperIds.has(String(row.paper_id))) &&
     snapshot.paperSearchMatches.every((row) => paperIds.has(String(row.paper_id)) && searchIds.has(String(row.search_id))) &&
-    snapshot.refreshRuns.every((row) => searchIds.has(String(row.search_id)));
+    snapshot.refreshRuns.every((row) => searchIds.has(String(row.search_id))) &&
+    snapshot.profileFacets.every((row) => profileIds.has(String(row.profile_id))) &&
+    snapshot.paperAiAnalyses.every((row) => paperIds.has(String(row.paper_id))) &&
+    snapshot.paperScores.every((row) => paperIds.has(String(row.paper_id))) &&
+    snapshot.paperFeedback.every((row) => paperIds.has(String(row.paper_id))) &&
+    snapshot.paperTopicMatches.every((row) => topicIds.has(String(row.topic_id)) && paperIds.has(String(row.paper_id))) &&
+    selectionReferencesExist;
   if (!valid) throw new Error("Invalid archive references");
 };
 
@@ -59,8 +85,8 @@ export class MigrationService {
     const snapshot = this.repository.exportSnapshot();
     const favorites = snapshot.paperState.filter((row) => Number(row.favorite) === 1).length;
     const manifest = {
-      exportVersion: 1,
-      schemaVersion: 1,
+      exportVersion: 2,
+      schemaVersion: 2,
       createdAt: this.clock().toISOString(),
       counts: { searches: snapshot.savedSearches.length, papers: snapshot.papers.length, favorites },
     };
@@ -95,8 +121,26 @@ export class MigrationService {
     if (expandedBytes > MAX_EXPANDED_BYTES) throw new Error("Archive exceeds expanded size limit");
 
     const manifest = manifestSchema.parse(JSON.parse(strFromU8(entries["manifest.json"])));
-    if (manifest.exportVersion !== 1 || manifest.schemaVersion !== 1) throw new Error("Unsupported archive version");
-    const snapshot = snapshotSchema.parse(JSON.parse(strFromU8(entries["data.json"]))) as DatabaseSnapshot;
+    const isLegacy = manifest.exportVersion === 1 && manifest.schemaVersion === 1;
+    const isCurrent = manifest.exportVersion === 2 && manifest.schemaVersion === 2;
+    if (!isLegacy && !isCurrent) throw new Error("Unsupported archive version");
+    const rawSnapshot = JSON.parse(strFromU8(entries["data.json"]));
+    const snapshot = (isLegacy
+      ? {
+          ...legacySnapshotSchema.parse(rawSnapshot),
+          researchProfiles: [],
+          profileFacets: [],
+          paperAiAnalyses: [],
+          paperScores: [],
+          researchTopics: [],
+          paperTopicMatches: [],
+          paperFeedback: [],
+          dailySelections: [],
+        }
+      : snapshotSchema.parse(rawSnapshot)) as DatabaseSnapshot;
+    snapshot.schemaMetadata = snapshot.schemaMetadata
+      .filter((row) => row.key !== "schema_version")
+      .concat({ key: "schema_version", value: "2" });
     if (snapshot.papers.length > MAX_PAPERS || snapshot.savedSearches.length > MAX_SEARCHES) {
       throw new Error("Archive exceeds record limit");
     }
@@ -111,8 +155,8 @@ export class MigrationService {
     }
     return {
       preview: {
-        exportVersion: 1,
-        schemaVersion: 1,
+        exportVersion: manifest.exportVersion as 1 | 2,
+        schemaVersion: manifest.schemaVersion as 1 | 2,
         createdAt: manifest.createdAt,
         searches: manifest.counts.searches,
         papers: manifest.counts.papers,

@@ -15,6 +15,14 @@ export type DatabaseSnapshot = {
   refreshRuns: Array<Record<string, unknown> & { search_id: string }>;
   settings: Array<Record<string, unknown>>;
   schemaMetadata: Array<Record<string, unknown>>;
+  researchProfiles: Array<Record<string, unknown> & { id: string }>;
+  profileFacets: Array<Record<string, unknown> & { profile_id: string }>;
+  paperAiAnalyses: Array<Record<string, unknown> & { paper_id: string }>;
+  paperScores: Array<Record<string, unknown> & { paper_id: string }>;
+  researchTopics: Array<Record<string, unknown> & { id: string }>;
+  paperTopicMatches: Array<Record<string, unknown> & { topic_id: string; paper_id: string }>;
+  paperFeedback: Array<Record<string, unknown> & { paper_id: string }>;
+  dailySelections: Array<Record<string, unknown>>;
 };
 
 type PaperRow = {
@@ -209,6 +217,14 @@ export class Repository {
       refreshRuns: this.database.prepare("SELECT * FROM refresh_runs ORDER BY search_id, source").all() as DatabaseSnapshot["refreshRuns"],
       settings: this.database.prepare("SELECT * FROM settings ORDER BY key").all() as DatabaseSnapshot["settings"],
       schemaMetadata: this.database.prepare("SELECT * FROM schema_metadata ORDER BY key").all() as DatabaseSnapshot["schemaMetadata"],
+      researchProfiles: this.database.prepare("SELECT * FROM research_profiles ORDER BY version").all() as DatabaseSnapshot["researchProfiles"],
+      profileFacets: this.database.prepare("SELECT * FROM profile_facets ORDER BY profile_id, id").all() as DatabaseSnapshot["profileFacets"],
+      paperAiAnalyses: this.database.prepare("SELECT * FROM paper_ai_analyses ORDER BY cache_key").all() as DatabaseSnapshot["paperAiAnalyses"],
+      paperScores: this.database.prepare("SELECT * FROM paper_scores ORDER BY paper_id, profile_version").all() as DatabaseSnapshot["paperScores"],
+      researchTopics: this.database.prepare("SELECT * FROM research_topics ORDER BY id").all() as DatabaseSnapshot["researchTopics"],
+      paperTopicMatches: this.database.prepare("SELECT * FROM paper_topic_matches ORDER BY topic_id, paper_id").all() as DatabaseSnapshot["paperTopicMatches"],
+      paperFeedback: this.database.prepare("SELECT * FROM paper_feedback ORDER BY id").all() as DatabaseSnapshot["paperFeedback"],
+      dailySelections: this.database.prepare("SELECT * FROM daily_selections ORDER BY date, profile_version").all() as DatabaseSnapshot["dailySelections"],
     };
   }
 
@@ -224,7 +240,11 @@ export class Repository {
     };
 
     const transaction = this.database.transaction(() => {
-      for (const table of ["paper_search_matches", "paper_sources", "paper_state", "refresh_runs", "papers", "saved_searches", "settings", "schema_metadata"]) {
+      for (const table of [
+        "paper_topic_matches", "daily_selections", "paper_feedback", "paper_scores", "paper_ai_analyses",
+        "profile_facets", "research_topics", "research_profiles", "paper_search_matches", "paper_sources",
+        "paper_state", "refresh_runs", "papers", "saved_searches", "settings", "schema_metadata",
+      ]) {
         this.database.prepare(`DELETE FROM ${table}`).run();
       }
       insertRows("saved_searches", snapshot.savedSearches);
@@ -235,6 +255,14 @@ export class Repository {
       insertRows("refresh_runs", snapshot.refreshRuns);
       insertRows("settings", snapshot.settings);
       insertRows("schema_metadata", snapshot.schemaMetadata);
+      insertRows("research_profiles", snapshot.researchProfiles);
+      insertRows("profile_facets", snapshot.profileFacets);
+      insertRows("paper_ai_analyses", snapshot.paperAiAnalyses);
+      insertRows("paper_scores", snapshot.paperScores);
+      insertRows("research_topics", snapshot.researchTopics);
+      insertRows("paper_topic_matches", snapshot.paperTopicMatches);
+      insertRows("paper_feedback", snapshot.paperFeedback);
+      insertRows("daily_selections", snapshot.dailySelections);
     });
     transaction();
   }

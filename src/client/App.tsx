@@ -45,6 +45,15 @@ export const App = ({ api = defaultApi }: { api?: ResearchApi }) => {
     setDaily(nextDaily);
     setTopics(nextTopics);
   }, [api]);
+  const reloadAfterRestore = useCallback(async () => {
+    const [nextSearches, nextPapers, nextProfile] = await Promise.all([
+      api.listSearches(), api.listPapers(feedQuery), api.getProfile(),
+    ]);
+    setSearches(nextSearches);
+    setPapers(nextPapers);
+    setProfileState(nextProfile.profile ? nextProfile as ProfileState : null);
+    if (nextProfile.profile) await loadRadar();
+  }, [api, feedQuery, loadRadar]);
 
   useEffect(() => {
     let active = true;
@@ -122,7 +131,7 @@ export const App = ({ api = defaultApi }: { api?: ResearchApi }) => {
     {loading ? <p>{t("loading")}</p> : !profileState ? <ProfileSetup api={api} labels={profileLabels} onConfirmed={(next) => {
       setProfileState(next as ProfileState);
       void loadRadar();
-    }} /> : showMigration ? <MigrationPanel api={api} title={t("dataMigration")} labels={{ exportZip: t("exportZip"), chooseZip: t("chooseZip"), preview: t("preview"), restore: t("restore") }} onRestored={() => { setShowMigration(false); void loadRadar(); }} /> : view === "radar" && daily ? <div className="radar-workspace">
+    }} /> : showMigration ? <MigrationPanel api={api} title={t("dataMigration")} labels={{ exportZip: t("exportZip"), chooseZip: t("chooseZip"), preview: t("preview"), restore: t("restore") }} onRestored={() => { setShowMigration(false); void reloadAfterRestore(); }} /> : view === "radar" && daily ? <div className="radar-workspace">
       <TopicRadar topics={topics} selectedId={selectedTopicId} onSelect={setSelectedTopicId} labels={topicLabels} />
       <DailySelection view={daily} selectedTopic={selectedTopic} labels={dailyLabels} onState={updateState} onFeedback={async (paperId, input) => { await api.recordFeedback(paperId, input); }} />
     </div> : <>

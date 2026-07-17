@@ -59,6 +59,15 @@ app.get(/^(?!\/api(?:\/|$)).*/, (_request, response) => {
   response.sendFile(resolve(clientDirectory, "index.html"));
 });
 
-app.listen(port, "127.0.0.1", () => {
+const server = app.listen(port, "127.0.0.1", () => {
   console.log(`Research Update is running at http://localhost:${port}`);
 });
+
+const shutdown = () => {
+  server.close(() => {
+    database.close();
+    process.exit(0);
+  });
+};
+process.once("SIGINT", shutdown);
+process.once("SIGTERM", shutdown);
