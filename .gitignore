@@ -6,5 +6,6 @@ dist/
 *.db-wal
 *.log
 .superpowers/
+.worktrees/
 test-results/
 playwright-report/
