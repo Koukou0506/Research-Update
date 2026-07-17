@@ -11,5 +11,7 @@ describe("approved dashboard visual system", () => {
     expect(css).toContain("@media (max-width: 899px)");
     expect(css).toContain("grid-template-columns: repeat(3, minmax(0, 1fr))");
     expect(css).toContain("prefers-reduced-motion: reduce");
+    expect(css).toContain(".radar-workspace { display: grid; grid-template-columns: minmax(260px, 32%) minmax(0, 68%);");
+    expect(css).toContain(".radar-workspace { display: block;");
   });
 });

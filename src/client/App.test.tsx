@@ -1,10 +1,11 @@
 import "@testing-library/jest-dom/vitest";
 
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Paper, SavedSearch } from "../shared/contracts";
+import type { DailyRadarView, ResearchProfile, ResearchTopic } from "../shared/radar";
 import { App } from "./App";
 import type { ResearchApi } from "./api";
 
@@ -26,7 +27,22 @@ const paper: Paper = {
   read: false,
 };
 
-const fakeApi = (): ResearchApi => {
+const profile: ResearchProfile = { id: "profile-1", text: "I study spectroscopy.", version: 1, active: true, createdAt: "2026-07-17" };
+const topic: ResearchTopic = {
+  id: "topic-1", profileVersion: 1, kind: "stable", label: "spectroscopy", status: "rising", confidence: 0.9,
+  paperCount7d: 1, highRelevanceCount: 1, baselineChange: 0.5, representativePaperIds: [paper.id],
+  activeTeams: ["Ada Astronomer"], summary: "One recent paper.", updatedAt: "2026-07-17",
+};
+const dailyView: DailyRadarView = {
+  selection: { date: "2026-07-17", profileVersion: 1, paperIds: [paper.id], mode: "hybrid", createdAt: "2026-07-17" },
+  papers: [paper],
+  scores: [{ paperId: paper.id, profileVersion: 1, rule: 50, semantic: 90, feedback: 50, final: 71.5, mode: "hybrid", evidence: [], createdAt: "2026-07-17" }],
+  analyses: [{ paperId: paper.id, cacheKey: "cache", profileVersion: 1, semanticScore: 90, topics: ["spectroscopy"],
+    reason: "The method matches your profile.", emergingTopicCandidates: [], confidence: 0.9, recommend: true,
+    providerBaseUrl: "https://example.test/v1", model: "test", schemaVersion: 1, createdAt: "2026-07-17" }],
+};
+
+const fakeApi = (profileAvailable = true): ResearchApi => {
   const searches: SavedSearch[] = [];
   return {
     getStatus: vi.fn(async () => ({ arxiv: { available: true }, ads: { available: false } })),
@@ -47,8 +63,18 @@ const fakeApi = (): ResearchApi => {
     exportArchive: vi.fn(async () => new Blob()),
     previewArchive: vi.fn(),
     restoreArchive: vi.fn(),
+    getProfile: vi.fn(async () => ({ profile: profileAvailable ? profile : null, facets: profileAvailable ? [{ id: "f1", profileId: profile.id, kind: "method" as const, value: "spectroscopy", weight: 1 }] : [] })),
+    previewProfile: vi.fn(async () => [{ kind: "method" as const, value: "spectroscopy", weight: 1 }]),
+    confirmProfile: vi.fn(async (text, facets) => ({ profile: { ...profile, text }, facets })),
+    getDailyRadar: vi.fn(async () => dailyView),
+    listTopics: vi.fn(async () => [topic]),
+    recordFeedback: vi.fn(async () => undefined),
+    undoFeedback: vi.fn(async () => undefined),
+    getAiStatus: vi.fn(async () => ({ available: true, baseUrl: "https://example.test/v1", model: "test", message: null })),
   };
 };
+
+afterEach(() => cleanup());
 
 describe("Research Update dashboard", () => {
   it("shows cached papers, switches language, searches, and saves a temporary query", async () => {
@@ -57,6 +83,7 @@ describe("Research Update dashboard", () => {
 
     expect(await screen.findByText(paper.title)).toBeVisible();
     await user.click(screen.getByRole("button", { name: "EN" }));
+    await user.click(screen.getByRole("button", { name: "All papers" }));
     expect(screen.getByText("Following")).toBeVisible();
 
     await user.type(screen.getByRole("searchbox"), "cosmic dawn");
@@ -64,6 +91,19 @@ describe("Research Update dashboard", () => {
     await user.click(await screen.findByRole("button", { name: "Save search" }));
 
     expect(await screen.findByText("cosmic dawn")).toBeVisible();
+  });
+
+  it("shows profile setup before the radar when no profile is confirmed", async () => {
+    render(<App api={fakeApi(false)} />);
+
+    expect(await screen.findByRole("heading", { name: "建立研究画像" })).toBeVisible();
+  });
+
+  it("loads the topic radar and grounded daily explanation as the primary view", async () => {
+    render(<App api={fakeApi()} />);
+
+    expect(await screen.findByRole("heading", { name: "主题雷达" })).toBeVisible();
+    expect(screen.getByText("The method matches your profile.")).toBeVisible();
   });
 
   it("updates favorite state optimistically", async () => {

@@ -1,4 +1,5 @@
 import type { FeedQuery, Paper, SavedSearch, SourceName } from "../shared/contracts";
+import type { DailyRadarView, PaperFeedback, ProfileFacet, ProfileFacetInput, ResearchProfile, ResearchTopic } from "../shared/radar";
 
 export type SourceRun = { state: "ok" | "error"; count: number; message: string | null };
 export type MigrationPreview = { exportVersion: 1; schemaVersion: 1; createdAt: string; searches: number; papers: number; favorites: number };
@@ -18,6 +19,14 @@ export interface ResearchApi {
   exportArchive(): Promise<Blob>;
   previewArchive(archive: File): Promise<MigrationPreview>;
   restoreArchive(archive: File): Promise<MigrationPreview>;
+  getProfile(): Promise<{ profile: ResearchProfile | null; facets: ProfileFacet[] }>;
+  previewProfile(text: string): Promise<ProfileFacetInput[]>;
+  confirmProfile(text: string, facets: ProfileFacetInput[]): Promise<{ profile: ResearchProfile; facets: ProfileFacet[] }>;
+  getDailyRadar(): Promise<DailyRadarView>;
+  listTopics(): Promise<ResearchTopic[]>;
+  recordFeedback(paperId: string, input: { relevance: "relevant" | "irrelevant"; reason: PaperFeedback["reason"] }): Promise<void>;
+  undoFeedback(paperId: string): Promise<void>;
+  getAiStatus(): Promise<{ available: boolean; baseUrl: string; model: string; message: string | null }>;
 }
 
 const requestJson = async <T>(url: string, init?: RequestInit): Promise<T> => {
@@ -69,4 +78,18 @@ export const api: ResearchApi = {
   },
   previewArchive: (archive) => archiveRequest("/api/migration/preview", archive),
   restoreArchive: (archive) => archiveRequest("/api/migration/restore", archive),
+  getProfile: () => requestJson("/api/profile"),
+  async previewProfile(text) {
+    return (await requestJson<{ facets: ProfileFacetInput[] }>("/api/profile/preview", { method: "POST", body: JSON.stringify({ text }) })).facets;
+  },
+  confirmProfile: (text, facets) => requestJson("/api/profile", { method: "PUT", body: JSON.stringify({ text, facets }) }),
+  getDailyRadar: () => requestJson("/api/radar/daily"),
+  listTopics: () => requestJson("/api/radar/topics"),
+  async recordFeedback(paperId, input) {
+    await requestJson(`/api/papers/${encodeURIComponent(paperId)}/feedback`, { method: "POST", body: JSON.stringify(input) });
+  },
+  async undoFeedback(paperId) {
+    await requestJson(`/api/papers/${encodeURIComponent(paperId)}/feedback`, { method: "DELETE" });
+  },
+  getAiStatus: () => requestJson("/api/ai/status"),
 };
