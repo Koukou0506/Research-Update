@@ -68,6 +68,7 @@ class AdsAdapter implements SourceAdapter {
 
 export function createAdsAdapter(token: undefined, fetcher?: FetchLike): null;
 export function createAdsAdapter(token: string, fetcher?: FetchLike): SourceAdapter;
+export function createAdsAdapter(token: string | undefined, fetcher?: FetchLike): SourceAdapter | null;
 export function createAdsAdapter(token: string | undefined, fetcher: FetchLike = fetch): SourceAdapter | null {
   return token?.trim() ? new AdsAdapter(token.trim(), fetcher) : null;
 }
