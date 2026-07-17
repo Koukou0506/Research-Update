@@ -37,6 +37,19 @@ const openAiResponse = (paperIds: string[]) => new Response(JSON.stringify({
 }), { status: 200, headers: { "content-type": "application/json" } });
 
 describe("OpenAI-compatible provider", () => {
+  it("parses a research description into validated facets", async () => {
+    const response = new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({
+        facets: [{ kind: "method", value: "spectroscopy", weight: 1 }],
+      }) } }],
+    }), { status: 200 });
+    const provider = createOpenAiCompatibleProvider(config, vi.fn<typeof fetch>().mockResolvedValue(response));
+
+    await expect(provider.previewProfile("I study spectroscopy.")).resolves.toEqual([
+      { kind: "method", value: "spectroscopy", weight: 1 },
+    ]);
+  });
+
   it("batches papers, validates structured JSON, and keeps the key out of status", async () => {
     const fetcher = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(openAiResponse(["p1"]))

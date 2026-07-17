@@ -28,5 +28,6 @@ export type PaperAnalysisInput = {
 
 export interface AiProvider {
   status(): Promise<{ available: boolean; baseUrl: string; model: string; message: string | null }>;
+  previewProfile(text: string): Promise<ProfileFacetInput[]>;
   analyze(request: AnalysisRequest): Promise<PaperAnalysisInput[]>;
 }
