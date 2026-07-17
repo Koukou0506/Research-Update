@@ -1,4 +1,4 @@
-import { profileFacetInputSchema, type ProfileFacetInput, type ResearchProfile } from "../../shared/radar";
+import { profileFacetInputSchema, type ProfileFacet, type ProfileFacetInput, type ResearchProfile } from "../../shared/radar";
 import type { RadarRepository } from "../db/radarRepository";
 import type { AiProvider } from "./ai/types";
 
@@ -30,6 +30,11 @@ export class ProfileService {
 
   getActive(): ResearchProfile | null {
     return this.repository.getActiveProfile();
+  }
+
+  getActiveState(): { profile: ResearchProfile; facets: ProfileFacet[] } | null {
+    const profile = this.repository.getActiveProfile();
+    return profile ? { profile, facets: this.repository.listFacets(profile.id) } : null;
   }
 
   async preview(text: string): Promise<ProfileFacetInput[]> {

@@ -45,6 +45,9 @@ describe("ProfileService", () => {
     expect(radar.listFacets(profile.id)).toEqual([
       expect.objectContaining({ kind: "method", value: "Spectroscopy", weight: 1 }),
     ]);
+    expect(service.getActiveState()?.facets).toEqual([
+      expect.objectContaining({ kind: "method", value: "Spectroscopy", weight: 1 }),
+    ]);
   });
 
   it("falls back to one editable literal topic when AI is absent or fails", async () => {

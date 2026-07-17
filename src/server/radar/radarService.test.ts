@@ -68,6 +68,17 @@ describe("RadarService", () => {
     expect(ai.analyze).toHaveBeenCalledTimes(1);
   });
 
+  it("returns papers, scores, and grounded analyses in daily order", async () => {
+    papers.upsertPapers([makePaper(1), makePaper(2)]);
+    const service = new RadarService(papers, radar, provider(), () => new Date("2026-07-17T08:00:00.000Z"));
+
+    const view = await service.getDailyView();
+
+    expect(view.papers.map((paper) => paper.id)).toEqual(view.selection.paperIds);
+    expect(view.scores).toHaveLength(2);
+    expect(view.analyses[0].reason).toBe("The method matches the profile.");
+  });
+
   it("returns rule-ranked papers when AI analysis fails", async () => {
     papers.upsertPapers(Array.from({ length: 6 }, (_, index) => makePaper(index)));
     const ai = provider();

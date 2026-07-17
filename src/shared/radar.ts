@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Paper } from "./contracts";
 
 export const facetKindSchema = z.enum(["topic", "object", "method", "data-type", "author", "exclude"]);
 
@@ -96,4 +97,11 @@ export type DailySelection = {
   paperIds: string[];
   mode: "hybrid" | "rule-only";
   createdAt: string;
+};
+
+export type DailyRadarView = {
+  selection: DailySelection;
+  papers: Paper[];
+  scores: PaperScore[];
+  analyses: PaperAnalysis[];
 };

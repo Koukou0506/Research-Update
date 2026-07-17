@@ -3,7 +3,12 @@ import multer from "multer";
 import { z, ZodError } from "zod";
 
 import { feedQuerySchema, type SourceName } from "../shared/contracts";
+import { paperFeedbackInputSchema, profileFacetInputSchema } from "../shared/radar";
 import type { Repository } from "./db/repository";
+import type { AiProvider } from "./radar/ai/types";
+import type { ProfileService } from "./radar/profileService";
+import type { RadarService } from "./radar/radarService";
+import type { TopicService } from "./radar/topicService";
 import type { RefreshService } from "./services/refresh";
 import type { SearchService } from "./services/search";
 import type { MigrationService } from "./services/migration";
@@ -13,6 +18,10 @@ type AppDependencies = {
   search: SearchService;
   refresh: RefreshService;
   migration?: MigrationService;
+  profile?: ProfileService;
+  radar?: RadarService;
+  topics?: TopicService;
+  ai?: AiProvider;
   configuredSources: SourceName[];
 };
 
@@ -22,12 +31,14 @@ const paperStateSchema = z.object({ favorite: z.boolean().optional(), read: z.bo
   (value) => value.favorite !== undefined || value.read !== undefined,
 );
 const settingsSchema = z.object({ language: z.enum(["zh", "en"]) });
+const profileTextSchema = z.object({ text: z.string().trim().min(10).max(5_000) });
+const profileConfirmSchema = profileTextSchema.extend({ facets: z.array(profileFacetInputSchema).min(1).max(30) });
 
 const asyncRoute = (handler: RequestHandler): RequestHandler => (request, response, next) => {
   Promise.resolve(handler(request, response, next)).catch(next);
 };
 
-export const createApp = ({ repository, search, refresh, migration, configuredSources }: AppDependencies) => {
+export const createApp = ({ repository, search, refresh, migration, profile, radar, topics, ai, configuredSources }: AppDependencies) => {
   const app = express();
   const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024, files: 1 } });
   app.use(express.json({ limit: "1mb" }));
@@ -88,6 +99,50 @@ export const createApp = ({ repository, search, refresh, migration, configuredSo
     repository.setSetting("language", settings.language);
     response.json({ data: settings });
   });
+
+  app.get("/api/profile", (_request, response) => {
+    if (!profile) return response.json({ data: { profile: null, facets: [] } });
+    return response.json({ data: profile.getActiveState() ?? { profile: null, facets: [] } });
+  });
+  app.post("/api/profile/preview", asyncRoute(async (request, response) => {
+    if (!profile) return response.status(503).json({ error: { code: "UNAVAILABLE", message: "Research profile unavailable" } });
+    const { text } = profileTextSchema.parse(request.body);
+    return response.json({ data: { facets: await profile.preview(text) } });
+  }));
+  app.put("/api/profile", (request, response) => {
+    if (!profile) return response.status(503).json({ error: { code: "UNAVAILABLE", message: "Research profile unavailable" } });
+    const input = profileConfirmSchema.parse(request.body);
+    const confirmed = profile.confirm(input.text, input.facets);
+    return response.json({ data: profile.getActiveState() ?? { profile: confirmed, facets: [] } });
+  });
+
+  app.get("/api/radar/daily", asyncRoute(async (_request, response) => {
+    if (!radar) return response.status(503).json({ error: { code: "UNAVAILABLE", message: "Research radar unavailable" } });
+    return response.json({ data: await radar.getDailyView() });
+  }));
+  app.get("/api/radar/topics", (_request, response) => {
+    if (!profile || !topics) return response.status(503).json({ error: { code: "UNAVAILABLE", message: "Topic radar unavailable" } });
+    const active = profile.getActive();
+    if (!active) return response.status(409).json({ error: { code: "PROFILE_REQUIRED", message: "Research profile required" } });
+    return response.json({ data: topics.buildTopics(active.version, new Date()) });
+  });
+  app.get("/api/radar/topics/:id", (request, response) => {
+    if (!topics) return response.status(503).json({ error: { code: "UNAVAILABLE", message: "Topic radar unavailable" } });
+    return response.json({ data: topics.getTopicDetail(String(request.params.id), Number(request.query.windowDays ?? 7)) });
+  });
+  app.post("/api/papers/:id/feedback", (request, response) => {
+    if (!radar) return response.status(503).json({ error: { code: "UNAVAILABLE", message: "Research radar unavailable" } });
+    return response.json({ data: radar.recordFeedback(String(request.params.id), paperFeedbackInputSchema.parse(request.body)) });
+  });
+  app.delete("/api/papers/:id/feedback", (request, response) => {
+    if (!radar) return response.status(503).json({ error: { code: "UNAVAILABLE", message: "Research radar unavailable" } });
+    const feedback = radar.undoFeedback(String(request.params.id));
+    if (!feedback) return response.status(404).json({ error: { code: "NOT_FOUND", message: "Active feedback not found" } });
+    return response.json({ data: feedback });
+  });
+  app.get("/api/ai/status", asyncRoute(async (_request, response) => {
+    return response.json({ data: ai ? await ai.status() : { available: false, baseUrl: "", model: "", message: "AI not configured" } });
+  }));
 
   app.get("/api/migration/export", (_request, response) => {
     if (!migration) return response.status(503).json({ error: { code: "UNAVAILABLE", message: "Migration unavailable" } });

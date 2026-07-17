@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import type { DailySelection, PaperAnalysis, PaperFeedback } from "../../shared/radar";
+import type { DailyRadarView, DailySelection, PaperAnalysis, PaperFeedback } from "../../shared/radar";
 import type { RadarRepository } from "../db/radarRepository";
 import type { Repository } from "../db/repository";
 import { buildAnalysisCacheKey } from "./ai/openaiCompatible";
@@ -29,6 +29,21 @@ export class RadarService {
     if (!profile) throw new Error("Research profile required");
     const date = this.clock().toISOString().slice(0, 10);
     return this.radar.getDailySelection(date, profile.version) ?? this.recomputeDaily();
+  }
+
+  async getDailyView(): Promise<DailyRadarView> {
+    const selection = await this.getDailySelection();
+    const order = new Map(selection.paperIds.map((id, index) => [id, index]));
+    const papers = this.papers.listPapers({ sort: "latest", state: "all" })
+      .filter((paper) => order.has(paper.id))
+      .sort((left, right) => (order.get(left.id) ?? 0) - (order.get(right.id) ?? 0));
+    const selected = new Set(selection.paperIds);
+    return {
+      selection,
+      papers,
+      scores: this.radar.listScores(selection.profileVersion).filter((score) => selected.has(score.paperId)),
+      analyses: this.radar.listAnalyses(selection.profileVersion).filter((analysis) => selected.has(analysis.paperId)),
+    };
   }
 
   async recomputeDaily(): Promise<DailySelection> {
