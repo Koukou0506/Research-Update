@@ -24,6 +24,7 @@ export const App = ({ api = defaultApi }: { api?: ResearchApi }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showMigration, setShowMigration] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const t = useCallback((key: Parameters<typeof translate>[1]) => translate(language, key), [language]);
   const feedQuery = useMemo(() => ({ sort, state, searchId: selectedSearchId, source }), [sort, state, selectedSearchId, source]);
@@ -83,8 +84,9 @@ export const App = ({ api = defaultApi }: { api?: ResearchApi }) => {
       <Header language={language} query={query} searchLabel={t("search")} refreshLabel={t("refresh")} placeholder={t("searchPlaceholder")} refreshing={refreshing} onLanguageChange={switchLanguage} onQueryChange={setQuery} onSearch={runSearch} onRefresh={refresh} />
       <div className="source-status"><span>arXiv</span><span>{status.ads.available ? "ADS" : t("adsUnavailable")}</span>{partial && <strong>{t("sourcePartial")}</strong>}</div>
       {temporaryQuery && <div className="temporary-banner"><span>{temporaryQuery}</span><button onClick={saveTemporary}>{t("saveSearch")}</button></div>}
+      <button className="mobile-nav-toggle" aria-expanded={mobileNavOpen} onClick={() => setMobileNavOpen((open) => !open)}>☰ {t("following")}</button>
       <div className="workspace">
-        <SavedSearchNav heading={t("following")} searches={searches} selectedId={selectedSearchId} labels={{ all: t("allPapers"), pause: t("pause"), resume: t("resume"), remove: t("remove"), migration: t("dataMigration") }} onSelect={(id) => { setSelectedSearchId(id); setTemporaryQuery(""); }} onToggle={async (search) => { const updated = await api.updateSearch(search.id, { enabled: !search.enabled }); setSearches((items) => items.map((item) => item.id === updated.id ? updated : item)); }} onDelete={async (id) => { await api.deleteSearch(id); setSearches((items) => items.filter((item) => item.id !== id)); if (selectedSearchId === id) setSelectedSearchId(undefined); }} onMigration={() => setShowMigration(true)} />
+        <SavedSearchNav open={mobileNavOpen} heading={t("following")} searches={searches} selectedId={selectedSearchId} labels={{ all: t("allPapers"), pause: t("pause"), resume: t("resume"), remove: t("remove"), migration: t("dataMigration") }} onSelect={(id) => { setSelectedSearchId(id); setTemporaryQuery(""); setMobileNavOpen(false); }} onToggle={async (search) => { const updated = await api.updateSearch(search.id, { enabled: !search.enabled }); setSearches((items) => items.map((item) => item.id === updated.id ? updated : item)); }} onDelete={async (id) => { await api.deleteSearch(id); setSearches((items) => items.filter((item) => item.id !== id)); if (selectedSearchId === id) setSelectedSearchId(undefined); }} onMigration={() => { setShowMigration(true); setMobileNavOpen(false); }} />
         <main className="content">
           <div className="feed-controls">
             <select aria-label="source" value={source ?? ""} onChange={(event) => setSource((event.target.value || undefined) as SourceName | undefined)}><option value="">{t("allSources")}</option><option value="arxiv">arXiv</option><option value="ads">ADS</option></select>

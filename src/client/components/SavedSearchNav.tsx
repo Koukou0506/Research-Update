@@ -9,10 +9,11 @@ type Props = {
   onToggle(search: SavedSearch): void;
   onDelete(id: string): void;
   onMigration(): void;
+  open?: boolean;
 };
 
-export const SavedSearchNav = ({ heading, searches, selectedId, labels, onSelect, onToggle, onDelete, onMigration }: Props) => (
-  <aside className="sidebar">
+export const SavedSearchNav = ({ heading, searches, selectedId, labels, onSelect, onToggle, onDelete, onMigration, open = false }: Props) => (
+  <aside className={open ? "sidebar open" : "sidebar"}>
     <div className="sidebar-heading"><strong>{heading}</strong><span>{searches.length}</span></div>
     <button className={!selectedId ? "nav-item active" : "nav-item"} onClick={() => onSelect()}>{labels.all}</button>
     {searches.map((search) => (
