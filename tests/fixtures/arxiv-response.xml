@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:arxiv="http://arxiv.org/schemas/atom">
+  <entry>
+    <id>https://arxiv.org/abs/2607.00001v2</id>
+    <updated>2026-07-16T08:30:00Z</updated>
+    <published>2026-07-15T12:00:00Z</published>
+    <title>Time-resolved polarization in a fast radio burst</title>
+    <summary>We present fixed fixture results for a repeating source.</summary>
+    <author><name>Ada Astronomer</name></author>
+    <author><name>Bo Cosmologist</name></author>
+    <link href="https://arxiv.org/abs/2607.00001v2" rel="alternate" type="text/html" />
+    <arxiv:doi>10.1000/frb</arxiv:doi>
+    <arxiv:journal_ref>ApJ 999, 1 (2026)</arxiv:journal_ref>
+  </entry>
+</feed>

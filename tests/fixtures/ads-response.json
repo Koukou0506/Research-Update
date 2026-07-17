@@ -1,0 +1,18 @@
+{
+  "response": {
+    "numFound": 1,
+    "docs": [
+      {
+        "bibcode": "2026ApJ...999....1A",
+        "title": ["Time-resolved polarization in a fast radio burst"],
+        "abstract": "We present fixed fixture results for a repeating source.",
+        "author": ["Astronomer, Ada", "Cosmologist, Bo"],
+        "pubdate": "2026-07-00",
+        "pub": "The Astrophysical Journal",
+        "doi": ["10.1000/frb"],
+        "identifier": ["arXiv:2607.00001"],
+        "citation_count": 17
+      }
+    ]
+  }
+}
