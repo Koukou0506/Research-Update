@@ -4,7 +4,7 @@
   "description": "A local astronomy paper dashboard for arXiv and NASA ADS",
   "scripts": {
     "dev": "concurrently \"vite\" \"tsx watch src/server/index.ts\"",
-    "build": "vite build && tsc -p tsconfig.server.json --noEmit",
+    "build": "vite build && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit",
     "start": "tsx src/server/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
