@@ -82,6 +82,13 @@ export class RadarRepository {
     };
   }
 
+  listAnalyses(profileVersion: number): PaperAnalysis[] {
+    const keys = this.database.prepare(
+      "SELECT cache_key FROM paper_ai_analyses WHERE profile_version = ? ORDER BY rowid",
+    ).all(profileVersion) as Array<{ cache_key: string }>;
+    return keys.map(({ cache_key }) => this.findAnalysis(cache_key)).filter((value): value is PaperAnalysis => value !== null);
+  }
+
   saveScore(value: PaperScore): void {
     this.database.prepare(`
       INSERT INTO paper_scores(paper_id, profile_version, rule_score, semantic_score, feedback_score, final_score, mode, evidence_json, created_at)
@@ -102,6 +109,13 @@ export class RadarRepository {
       final: Number(row.final_score), mode: row.mode as PaperScore["mode"],
       evidence: parseJson<PaperScore["evidence"]>(String(row.evidence_json)), createdAt: String(row.created_at),
     } : null;
+  }
+
+  listScores(profileVersion: number): PaperScore[] {
+    const ids = this.database.prepare(
+      "SELECT paper_id FROM paper_scores WHERE profile_version = ? ORDER BY rowid",
+    ).all(profileVersion) as Array<{ paper_id: string }>;
+    return ids.map(({ paper_id }) => this.getScore(paper_id, profileVersion)).filter((value): value is PaperScore => value !== null);
   }
 
   saveFeedback(input: PaperFeedbackInput): PaperFeedback {
