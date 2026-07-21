@@ -29,7 +29,7 @@ const view: DailyRadarView = {
 it("shows explanations and records structured irrelevant feedback", async () => {
   const user = userEvent.setup();
   const onFeedback = vi.fn(async () => undefined);
-  render(<DailySelection view={view} selectedTopic={undefined} onFeedback={onFeedback} labels={{
+  render(<DailySelection view={view} onFeedback={onFeedback} labels={{
     title: "每日精选", ruleOnly: "规则模式", why: "为什么推荐", relevant: "很相关", irrelevant: "不相关",
     confirmReason: "确认原因", reasonLabel: "不相关原因", wrongTopic: "主题不符", wrongMethod: "研究方法不符",
     wrongObject: "对象不符", tooBroad: "过于宽泛", alreadyKnown: "已经了解", abstract: "摘要", empty: "暂无论文",

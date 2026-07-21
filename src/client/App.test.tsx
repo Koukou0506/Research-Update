@@ -68,6 +68,7 @@ const fakeApi = (profileAvailable = true): ResearchApi => {
     confirmProfile: vi.fn(async (text, facets) => ({ profile: { ...profile, text }, facets })),
     getDailyRadar: vi.fn(async () => dailyView),
     listTopics: vi.fn(async () => [topic]),
+    getTopicDetail: vi.fn(async () => ({ topic, papers: [paper] })),
     recordFeedback: vi.fn(async () => undefined),
     undoFeedback: vi.fn(async () => undefined),
     getAiStatus: vi.fn(async () => ({ available: true, baseUrl: "https://example.test/v1", model: "test", message: null })),
@@ -115,5 +116,20 @@ describe("Research Update dashboard", () => {
 
     expect(api.updatePaperState).toHaveBeenCalledWith(paper.id, { favorite: true });
     expect(screen.getByRole("button", { name: "取消收藏" })).toBeVisible();
+  });
+  it("shows a selected topic's representative papers outside the daily selection", async () => {
+    const user = userEvent.setup();
+    const topicPaper = { ...paper, id: "topic-paper", title: "A topic paper outside today's selection" };
+    const selectedTopic = { ...topic, label: "microlensing", representativePaperIds: [topicPaper.id] };
+    const api = fakeApi();
+    api.listTopics = vi.fn(async () => [selectedTopic]);
+    const getTopicDetail = vi.fn(async () => ({ topic: selectedTopic, papers: [topicPaper] }));
+    Object.assign(api, { getTopicDetail });
+    render(<App api={api} />);
+
+    await user.click(await screen.findByRole("button", { name: /microlensing/ }));
+
+    expect(await screen.findByText(topicPaper.title)).toBeVisible();
+    expect(getTopicDetail).toHaveBeenCalledWith(selectedTopic.id, 7);
   });
 });

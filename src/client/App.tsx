@@ -31,6 +31,8 @@ export const App = ({ api = defaultApi }: { api?: ResearchApi }) => {
   const [daily, setDaily] = useState<DailyRadarView>();
   const [topics, setTopics] = useState<ResearchTopic[]>([]);
   const [selectedTopicId, setSelectedTopicId] = useState<string>();
+  const [topicPapers, setTopicPapers] = useState<Paper[]>();
+  const [topicLoading, setTopicLoading] = useState(false);
   const [view, setView] = useState<"radar" | "feed">("radar");
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -77,6 +79,22 @@ export const App = ({ api = defaultApi }: { api?: ResearchApi }) => {
 
   useEffect(() => { if (!loading && !temporaryQuery && view === "feed") void reloadPapers(); }, [feedQuery, view]);
 
+  useEffect(() => {
+    let active = true;
+    if (!selectedTopicId) {
+      setTopicPapers(undefined);
+      setTopicLoading(false);
+      return () => { active = false; };
+    }
+    setTopicPapers(undefined);
+    setTopicLoading(true);
+    void api.getTopicDetail(selectedTopicId, 7)
+      .then((detail) => { if (active) setTopicPapers(detail.papers); })
+      .catch(() => { if (active) setTopicPapers([]); })
+      .finally(() => { if (active) setTopicLoading(false); });
+    return () => { active = false; };
+  }, [api, selectedTopicId]);
+
   const switchLanguage = async () => {
     const next = language === "zh" ? "en" : "zh";
     setLanguage(next);
@@ -108,6 +126,7 @@ export const App = ({ api = defaultApi }: { api?: ResearchApi }) => {
   const updateState = async (id: string, patch: Partial<Pick<Paper, "favorite" | "read">>) => {
     setPapers((current) => current.map((paper) => paper.id === id ? { ...paper, ...patch } : paper));
     setDaily((current) => current ? { ...current, papers: current.papers.map((paper) => paper.id === id ? { ...paper, ...patch } : paper) } : current);
+    setTopicPapers((current) => current?.map((paper) => paper.id === id ? { ...paper, ...patch } : paper));
     await api.updatePaperState(id, patch);
   };
 
@@ -133,7 +152,7 @@ export const App = ({ api = defaultApi }: { api?: ResearchApi }) => {
       void loadRadar();
     }} /> : showMigration ? <MigrationPanel api={api} title={t("dataMigration")} labels={{ exportZip: t("exportZip"), chooseZip: t("chooseZip"), preview: t("preview"), restore: t("restore") }} onRestored={() => { setShowMigration(false); void reloadAfterRestore(); }} /> : view === "radar" && daily ? <div className="radar-workspace">
       <TopicRadar topics={topics} selectedId={selectedTopicId} onSelect={setSelectedTopicId} labels={topicLabels} />
-      <DailySelection view={daily} selectedTopic={selectedTopic} labels={dailyLabels} onState={updateState} onFeedback={async (paperId, input) => { await api.recordFeedback(paperId, input); }} />
+      {selectedTopic ? topicLoading ? <p>{t("loading")}</p> : <PaperFeed papers={topicPapers ?? []} title={selectedTopic.label} empty={t("noPapers")} labels={{ favorite: t("favorite"), unfavorite: t("unfavorite"), markRead: t("markRead"), markUnread: t("markUnread"), abstract: t("abstract") }} onState={updateState} /> : <DailySelection view={daily} labels={dailyLabels} onState={updateState} onFeedback={async (paperId, input) => { await api.recordFeedback(paperId, input); }} />}
     </div> : <>
       <button className="mobile-nav-toggle" aria-expanded={mobileNavOpen} onClick={() => setMobileNavOpen((open) => !open)}>☰ {t("following")}</button>
       <div className="workspace">

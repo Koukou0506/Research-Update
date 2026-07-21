@@ -24,6 +24,7 @@ export interface ResearchApi {
   confirmProfile(text: string, facets: ProfileFacetInput[]): Promise<{ profile: ResearchProfile; facets: ProfileFacet[] }>;
   getDailyRadar(): Promise<DailyRadarView>;
   listTopics(): Promise<ResearchTopic[]>;
+  getTopicDetail(id: string, windowDays?: number): Promise<{ topic: ResearchTopic; papers: Paper[] }>;
   recordFeedback(paperId: string, input: { relevance: "relevant" | "irrelevant"; reason: PaperFeedback["reason"] }): Promise<void>;
   undoFeedback(paperId: string): Promise<void>;
   getAiStatus(): Promise<{ available: boolean; baseUrl: string; model: string; message: string | null }>;
@@ -85,6 +86,10 @@ export const api: ResearchApi = {
   confirmProfile: (text, facets) => requestJson("/api/profile", { method: "PUT", body: JSON.stringify({ text, facets }) }),
   getDailyRadar: () => requestJson("/api/radar/daily"),
   listTopics: () => requestJson("/api/radar/topics"),
+  getTopicDetail(id, windowDays = 7) {
+    const params = new URLSearchParams({ windowDays: String(windowDays) });
+    return requestJson(`/api/radar/topics/${encodeURIComponent(id)}?${params}`);
+  },
   async recordFeedback(paperId, input) {
     await requestJson(`/api/papers/${encodeURIComponent(paperId)}/feedback`, { method: "POST", body: JSON.stringify(input) });
   },

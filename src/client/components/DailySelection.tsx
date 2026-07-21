@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 
-import type { DailyRadarView, PaperFeedback, ResearchTopic } from "../../shared/radar";
+import type { DailyRadarView, PaperFeedback } from "../../shared/radar";
 
 type FeedbackInput = { relevance: "relevant" | "irrelevant"; reason: PaperFeedback["reason"] };
 type Labels = {
@@ -9,9 +9,8 @@ type Labels = {
   alreadyKnown: string; abstract: string; empty: string;
 };
 
-export const DailySelection = ({ view, selectedTopic, onFeedback, onState, labels }: {
+export const DailySelection = ({ view, onFeedback, onState, labels }: {
   view: DailyRadarView;
-  selectedTopic: ResearchTopic | undefined;
   onFeedback(paperId: string, input: FeedbackInput): Promise<void>;
   labels: Labels & { favorite?: string; unfavorite?: string; markRead?: string; markUnread?: string };
   onState?(paperId: string, patch: { favorite?: boolean; read?: boolean }): Promise<void>;
@@ -20,11 +19,7 @@ export const DailySelection = ({ view, selectedTopic, onFeedback, onState, label
   const [reason, setReason] = useState<NonNullable<PaperFeedback["reason"]>>("wrong-topic");
   const scores = useMemo(() => new Map(view.scores.map((score) => [score.paperId, score])), [view.scores]);
   const analyses = useMemo(() => new Map(view.analyses.map((analysis) => [analysis.paperId, analysis])), [view.analyses]);
-  const papers = selectedTopic ? view.papers.filter((paper) => {
-    const analysis = analyses.get(paper.id);
-    return selectedTopic.representativePaperIds.includes(paper.id) || analysis?.topics.includes(selectedTopic.label) ||
-      analysis?.emergingTopicCandidates.includes(selectedTopic.label);
-  }) : view.papers;
+  const papers = view.papers;
   const reasons = [
     ["wrong-topic", labels.wrongTopic], ["wrong-method", labels.wrongMethod], ["wrong-object", labels.wrongObject],
     ["too-broad", labels.tooBroad], ["already-known", labels.alreadyKnown],
