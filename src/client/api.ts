@@ -22,7 +22,7 @@ export interface ResearchApi {
   getProfile(): Promise<{ profile: ResearchProfile | null; facets: ProfileFacet[] }>;
   previewProfile(text: string): Promise<ProfileFacetInput[]>;
   confirmProfile(text: string, facets: ProfileFacetInput[]): Promise<{ profile: ResearchProfile; facets: ProfileFacet[] }>;
-  getDailyRadar(): Promise<DailyRadarView>;
+  getDailyRadar(forceRefresh?: boolean): Promise<DailyRadarView>;
   listTopics(): Promise<ResearchTopic[]>;
   getTopicDetail(id: string, windowDays?: number): Promise<{ topic: ResearchTopic; papers: Paper[] }>;
   recordFeedback(paperId: string, input: { relevance: "relevant" | "irrelevant"; reason: PaperFeedback["reason"] }): Promise<void>;
@@ -84,7 +84,7 @@ export const api: ResearchApi = {
     return (await requestJson<{ facets: ProfileFacetInput[] }>("/api/profile/preview", { method: "POST", body: JSON.stringify({ text }) })).facets;
   },
   confirmProfile: (text, facets) => requestJson("/api/profile", { method: "PUT", body: JSON.stringify({ text, facets }) }),
-  getDailyRadar: () => requestJson("/api/radar/daily"),
+  getDailyRadar: (forceRefresh = false) => requestJson(forceRefresh ? "/api/radar/daily?refresh=true" : "/api/radar/daily"),
   listTopics: () => requestJson("/api/radar/topics"),
   getTopicDetail(id, windowDays = 7) {
     const params = new URLSearchParams({ windowDays: String(windowDays) });

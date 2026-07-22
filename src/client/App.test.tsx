@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -66,7 +66,7 @@ const fakeApi = (profileAvailable = true): ResearchApi => {
     getProfile: vi.fn(async () => ({ profile: profileAvailable ? profile : null, facets: profileAvailable ? [{ id: "f1", profileId: profile.id, kind: "method" as const, value: "spectroscopy", weight: 1 }] : [] })),
     previewProfile: vi.fn(async () => [{ kind: "method" as const, value: "spectroscopy", weight: 1 }]),
     confirmProfile: vi.fn(async (text, facets) => ({ profile: { ...profile, text }, facets })),
-    getDailyRadar: vi.fn(async () => dailyView),
+    getDailyRadar: vi.fn(async (_forceRefresh = false) => dailyView),
     listTopics: vi.fn(async () => [topic]),
     getTopicDetail: vi.fn(async () => ({ topic, papers: [paper] })),
     recordFeedback: vi.fn(async () => undefined),
@@ -131,5 +131,31 @@ describe("Research Update dashboard", () => {
 
     expect(await screen.findByText(topicPaper.title)).toBeVisible();
     expect(getTopicDetail).toHaveBeenCalledWith(selectedTopic.id, 7);
+  });
+
+  it("recomputes the radar after startup and manual paper refreshes", async () => {
+    const user = userEvent.setup();
+    const api = fakeApi();
+    render(<App api={api} />);
+
+    await waitFor(() => expect(api.getDailyRadar).toHaveBeenCalledWith(true));
+    const forcedBeforeManual = vi.mocked(api.getDailyRadar).mock.calls.filter(([force]) => force === true).length;
+    await user.click(screen.getByRole("button", { name: "EN" }));
+    await user.click(screen.getByRole("button", { name: "Refresh" }));
+
+    await waitFor(() => expect(vi.mocked(api.getDailyRadar).mock.calls.filter(([force]) => force === true)).toHaveLength(forcedBeforeManual + 1));
+  });
+
+  it("keeps the cached radar when startup recomputation fails", async () => {
+    const api = fakeApi();
+    api.getDailyRadar = vi.fn(async (forceRefresh = false) => {
+      if (forceRefresh) throw new Error("radar unavailable");
+      return dailyView;
+    });
+    render(<App api={api} />);
+
+    expect(await screen.findByText("The method matches your profile.")).toBeVisible();
+    await waitFor(() => expect(api.getDailyRadar).toHaveBeenCalledWith(true));
+    await waitFor(() => expect(document.querySelector(".search-bar button[type='button']")).toBeEnabled());
   });
 });

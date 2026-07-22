@@ -33,6 +33,7 @@ const paperStateSchema = z.object({ favorite: z.boolean().optional(), read: z.bo
 const settingsSchema = z.object({ language: z.enum(["zh", "en"]) });
 const profileTextSchema = z.object({ text: z.string().trim().min(10).max(5_000) });
 const profileConfirmSchema = profileTextSchema.extend({ facets: z.array(profileFacetInputSchema).min(1).max(30) });
+const radarQuerySchema = z.object({ refresh: z.literal("true").optional() });
 
 const asyncRoute = (handler: RequestHandler): RequestHandler => (request, response, next) => {
   Promise.resolve(handler(request, response, next)).catch(next);
@@ -116,9 +117,10 @@ export const createApp = ({ repository, search, refresh, migration, profile, rad
     return response.json({ data: profile.getActiveState() ?? { profile: confirmed, facets: [] } });
   });
 
-  app.get("/api/radar/daily", asyncRoute(async (_request, response) => {
+  app.get("/api/radar/daily", asyncRoute(async (request, response) => {
     if (!radar) return response.status(503).json({ error: { code: "UNAVAILABLE", message: "Research radar unavailable" } });
-    return response.json({ data: await radar.getDailyView() });
+    const { refresh } = radarQuerySchema.parse(request.query);
+    return response.json({ data: await radar.getDailyView(refresh === "true") });
   }));
   app.get("/api/radar/topics", (_request, response) => {
     if (!profile || !topics) return response.status(503).json({ error: { code: "UNAVAILABLE", message: "Topic radar unavailable" } });

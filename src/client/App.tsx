@@ -42,8 +42,9 @@ export const App = ({ api = defaultApi }: { api?: ResearchApi }) => {
   const t = useCallback((key: Parameters<typeof translate>[1]) => translate(language, key), [language]);
   const feedQuery = useMemo(() => ({ sort, state, searchId: selectedSearchId, source }), [sort, state, selectedSearchId, source]);
   const reloadPapers = useCallback(async () => setPapers(await api.listPapers(feedQuery)), [api, feedQuery]);
-  const loadRadar = useCallback(async () => {
-    const [nextDaily, nextTopics] = await Promise.all([api.getDailyRadar(), api.listTopics()]);
+  const loadRadar = useCallback(async (forceRefresh = false) => {
+    const nextDaily = await api.getDailyRadar(forceRefresh);
+    const nextTopics = await api.listTopics();
     setDaily(nextDaily);
     setTopics(nextTopics);
   }, [api]);
@@ -70,8 +71,12 @@ export const App = ({ api = defaultApi }: { api?: ResearchApi }) => {
         setLoading(false);
         if (nextProfile.profile) void loadRadar();
         setRefreshing(true);
-        void api.refresh().then((result) => { if (active) setRuns(result.sources); })
-          .finally(() => { if (active) { setRefreshing(false); void reloadPapers(); } });
+        void api.refresh().then(async (result) => {
+          if (!active) return;
+          setRuns(result.sources);
+          await reloadPapers();
+          if (nextProfile.profile) await loadRadar(true);
+        }).catch(() => undefined).finally(() => { if (active) setRefreshing(false); });
       },
     );
     return () => { active = false; };
@@ -120,7 +125,9 @@ export const App = ({ api = defaultApi }: { api?: ResearchApi }) => {
     try {
       setRuns((await api.refresh(selectedSearchId ? [selectedSearchId] : undefined)).sources);
       await reloadPapers();
-      if (profileState) await loadRadar();
+      if (profileState) await loadRadar(true);
+    } catch {
+      // Keep the last rendered papers and radar when refresh fails.
     } finally { setRefreshing(false); }
   };
   const updateState = async (id: string, patch: Partial<Pick<Paper, "favorite" | "read">>) => {

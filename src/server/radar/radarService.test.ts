@@ -79,6 +79,18 @@ describe("RadarService", () => {
     expect(view.analyses[0].reason).toBe("The method matches the profile.");
   });
 
+  it("recomputes a same-day view when refresh is forced", async () => {
+    papers.upsertPapers([makePaper(1)]);
+    const service = new RadarService(papers, radar, provider(), () => new Date("2026-07-17T08:00:00.000Z"));
+    await service.getDailyView();
+    papers.upsertPapers([makePaper(2)]);
+
+    await expect(service.getDailyView()).resolves.toMatchObject({ papers: [{ id: "p1" }] });
+    await expect(service.getDailyView(true)).resolves.toMatchObject({ papers: expect.arrayContaining([
+      expect.objectContaining({ id: "p1" }), expect.objectContaining({ id: "p2" }),
+    ]) });
+  });
+
   it("returns rule-ranked papers when AI analysis fails", async () => {
     papers.upsertPapers(Array.from({ length: 6 }, (_, index) => makePaper(index)));
     const ai = provider();

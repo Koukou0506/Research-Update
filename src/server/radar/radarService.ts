@@ -31,8 +31,8 @@ export class RadarService {
     return this.radar.getDailySelection(date, profile.version) ?? this.recomputeDaily();
   }
 
-  async getDailyView(): Promise<DailyRadarView> {
-    const selection = await this.getDailySelection();
+  async getDailyView(forceRefresh = false): Promise<DailyRadarView> {
+    const selection = forceRefresh ? await this.recomputeDaily() : await this.getDailySelection();
     const order = new Map(selection.paperIds.map((id, index) => [id, index]));
     const papers = this.papers.listPapers({ sort: "latest", state: "all" })
       .filter((paper) => order.has(paper.id))

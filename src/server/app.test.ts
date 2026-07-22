@@ -118,6 +118,14 @@ describe("local API", () => {
     ] }).expect(200);
     const daily = await request(app).get("/api/radar/daily").expect(200);
     expect(daily.body.data.papers[0].id).toBe("p1");
+    repository.upsertPapers([{
+      id: "p2", title: "New spectroscopy result", abstract: "New atmosphere result", authors: ["Team B"],
+      publishedAt: "2026-07-17T01:00:00.000Z", journal: "ApJ", doi: null, arxivId: "2607.00002",
+      bibcode: null, citationCount: 0, sources: ["arxiv"], sourceUrls: { arxiv: "https://arxiv.org/abs/2607.00002" },
+      matchedSearchIds: [], favorite: false, read: false,
+    }]);
+    const refreshedDaily = await request(app).get("/api/radar/daily?refresh=true").expect(200);
+    expect(refreshedDaily.body.data.papers.map((paper: { id: string }) => paper.id)).toContain("p2");
     await request(app).get("/api/radar/topics").expect(200);
     await request(app).post("/api/papers/p1/feedback").send({ relevance: "irrelevant", reason: "wrong-method" }).expect(200);
     const status = await request(app).get("/api/ai/status").expect(200);
