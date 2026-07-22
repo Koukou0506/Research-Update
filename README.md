@@ -46,11 +46,11 @@ The token is read only by the local server. It is not returned to the browser, w
 ## Using the dashboard
 
 - On first use, describe your research direction, review the parsed topics, objects, methods, data types, authors, and exclusions, then confirm the profile.
-- **研究雷达 / Research radar** shows a stable daily selection and topic trends. Every recommendation exposes its score evidence; rule-only mode remains available when AI is not configured or fails.
+- **Research radar** shows a stable daily selection and topic trends. Every recommendation exposes its score evidence; rule-only mode remains available when AI is not configured or fails.
 - Mark recommendations as relevant or not relevant (with a reason) to influence later rankings without silently rewriting the current day's list.
-- Enter a temporary query in the header and select **搜索 / Search**.
-- Save a successful temporary query to add it to **关注词 / Following**.
-- Opening the page refreshes enabled saved searches; **更新 / Refresh** runs it manually.
+- Enter a temporary query in the header and select ** Search**.
+- Save a successful temporary query to add it to **Following**.
+- Opening the page refreshes enabled saved searches; ** Refresh** runs it manually.
 - Filter the feed by saved search, source, read/favorite state, and sort order.
 - Paper titles and abstracts remain in their source language; application controls switch between Chinese and English.
 
@@ -70,7 +70,7 @@ The API key stays in the server environment and is never stored in SQLite, retur
 
 ## Backup and migration
 
-Open **数据迁移 / Data migration** and select **导出 ZIP / Export ZIP**. The v2 archive contains saved searches, settings, cached paper metadata, user state, research profiles, topic evidence, scores, feedback, and daily selections. Existing v1 archives remain importable.
+Open **Data migration** and select ** Export ZIP**. The v2 archive contains saved searches, settings, cached paper metadata, user state, research profiles, topic evidence, scores, feedback, and daily selections. Existing v1 archives remain importable.
 
 On a new device, install Research Update, open the migration panel, choose the ZIP, review its counts, and confirm restore. Restore is transactional: an invalid or incompatible archive leaves the current database unchanged. ADS tokens are deliberately excluded and must be configured separately on the new device.
 
