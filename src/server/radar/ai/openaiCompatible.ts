@@ -31,6 +31,12 @@ const envelopeSchema = z.object({
 
 const normalizeBaseUrl = (value: string): string => value.replace(/\/+$/, "");
 
+const parseJsonContent = (content: string): unknown => {
+  const trimmed = content.trim();
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return JSON.parse(fenced?.[1] ?? trimmed);
+};
+
 export const buildAnalysisCacheKey = (input: {
   paperId: string;
   contentHash: string;
@@ -53,7 +59,7 @@ const buildBody = (model: string, request: AnalysisRequest, papers: AnalysisPape
   messages: [
     {
       role: "system",
-      content: "Return JSON with an analyses array. Score only supplied papers. Ground each reason in the profile and paper metadata.",
+      content: "Return only a JSON object with an analyses array. Return exactly one item per supplied paper. Each item must contain: paperId (the exact supplied paper ID), semanticScore (number from 0 to 100), topics (array of at most 10 non-empty strings), reason (non-empty string grounded in the profile and paper metadata), emergingTopicCandidates (array of at most 10 non-empty strings), confidence (number from 0 to 1), and recommend (boolean). Do not score any other papers or wrap the JSON in Markdown.",
     },
     {
       role: "user",
@@ -101,7 +107,7 @@ export const createOpenAiCompatibleProvider = (
   const requestBatch = async (request: AnalysisRequest, papers: AnalysisPaper[]): Promise<PaperAnalysisInput[]> => {
     const content = await requestCompletion(buildBody(config.model, request, papers));
     try {
-      const parsed = analysisPayloadSchema.parse(JSON.parse(content));
+      const parsed = analysisPayloadSchema.parse(parseJsonContent(content));
       const expectedIds = new Set(papers.map((paper) => paper.id));
       if (parsed.analyses.length !== papers.length || parsed.analyses.some((item) => !expectedIds.has(item.paperId))) {
         throw new Error("paper mismatch");
@@ -129,7 +135,7 @@ export const createOpenAiCompatibleProvider = (
             { role: "user", content: text },
           ],
         });
-        return facetPayloadSchema.parse(JSON.parse(content)).facets;
+        return facetPayloadSchema.parse(parseJsonContent(content)).facets;
       } catch (error) {
         if (error instanceof Error && error.message.startsWith("AI request failed")) throw error;
         throw new Error("Invalid AI response");

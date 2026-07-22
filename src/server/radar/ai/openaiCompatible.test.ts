@@ -50,6 +50,17 @@ describe("OpenAI-compatible provider", () => {
     ]);
   });
 
+  it("parses validated facets returned inside a JSON code fence", async () => {
+    const response = new Response(JSON.stringify({
+      choices: [{ message: { content: "```json\n{\"facets\":[{\"kind\":\"method\",\"value\":\"spectroscopy\",\"weight\":1}]}\n```" } }],
+    }), { status: 200 });
+    const provider = createOpenAiCompatibleProvider(config, vi.fn<typeof fetch>().mockResolvedValue(response));
+
+    await expect(provider.previewProfile("I study spectroscopy.")).resolves.toEqual([
+      { kind: "method", value: "spectroscopy", weight: 1 },
+    ]);
+  });
+
   it("batches papers, validates structured JSON, and keeps the key out of status", async () => {
     const fetcher = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(openAiResponse(["p1"]))
@@ -61,6 +72,28 @@ describe("OpenAI-compatible provider", () => {
     expect(fetcher.mock.calls[0][0]).toBe("https://api.example.test/v1/chat/completions");
     expect((fetcher.mock.calls[0][1]?.headers as Record<string, string>).authorization).toBe("Bearer secret-key");
     expect(JSON.stringify(await provider.status())).not.toContain(config.apiKey);
+  });
+
+  it("requests every validated analysis field and exact supplied paper IDs", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(openAiResponse(["p1", "p2"]));
+
+    await createOpenAiCompatibleProvider(config, fetcher).analyze(request);
+
+    const body = JSON.parse(String(fetcher.mock.calls[0][1]?.body));
+    const systemPrompt = body.messages[0].content;
+    for (const field of ["paperId", "semanticScore", "topics", "reason", "emergingTopicCandidates", "confidence", "recommend"]) {
+      expect(systemPrompt).toContain(field);
+    }
+    expect(systemPrompt).toContain("exact supplied paper ID");
+  });
+
+  it("parses paper analyses returned inside a JSON code fence", async () => {
+    const response = new Response(JSON.stringify({
+      choices: [{ message: { content: `\`\`\`json\n${JSON.stringify({ analyses: [analysis("p1"), analysis("p2")] })}\n\`\`\`` } }],
+    }), { status: 200 });
+    const provider = createOpenAiCompatibleProvider(config, vi.fn<typeof fetch>().mockResolvedValue(response));
+
+    await expect(provider.analyze(request)).resolves.toEqual([analysis("p1"), analysis("p2")]);
   });
 
   it("retries transient responses at most three times", async () => {
