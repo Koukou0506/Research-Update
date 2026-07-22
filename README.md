@@ -1,3 +1,5 @@
+**Read this in other languages: [English](README.md), [中文](README_zh.md).**
+
 # Research Update
 
 Research Update is a personal, locally hosted research radar for following astronomy papers from arXiv and NASA ADS. It turns a confirmed research profile into a daily ranked reading list and an evidence-backed topic radar, while retaining the full searchable paper feed.
